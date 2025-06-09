@@ -137,7 +137,6 @@ void patersonStockmeyer(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& inplace,
 
     context->RelinearizeInPlace(hoist);
     context->EvalAddInPlace(inplace, hoist);
-    //std::cout << inplace << std::endl;
 }
 
 void FLT(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& inplace, const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context) 
@@ -194,7 +193,7 @@ void rangeCheck(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     chrono::duration<double> clockh = chrono::duration<double>::zero();
     chrono::high_resolution_clock::time_point clock_start, clock_end;
 
-    std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>> ig = input;
+    //std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>> ig = input;
 
     // One-vector for Logical Negation
     std::vector<int64_t> vec_one(degree, 1);
@@ -207,8 +206,7 @@ void rangeCheck(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
 
             // Zeroize
             clock_start = chrono::high_resolution_clock::now();
-            patersonStockmeyer(input[i][j], coeff_rangeCheck2, context, sk);
-            //patersonStockmeyer(ig[i][j], coeff_rangeCheck, context, sk);
+            patersonStockmeyer(input[i][j], coeff_rangeCheck, context, sk);
 
             clock_end = chrono::high_resolution_clock::now();
             clockg += chrono::duration<double>(clock_end - clock_start);
@@ -216,7 +214,6 @@ void rangeCheck(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
             // Fermat's Little Theorem
             clock_start = chrono::high_resolution_clock::now();
             FLT(input[i][j], context);
-            //FLT(ig[i][j], context);
             clock_end = chrono::high_resolution_clock::now();
             clockh += chrono::duration<double>(clock_end - clock_start);
         
@@ -224,8 +221,6 @@ void rangeCheck(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
             input[i][j] = context->EvalSub(ptxt_one, input[i][j]);
         }
     }
-    std::cout << input[0][0] << std::endl;
-
 
     cout << "\t Zeroize Time: " << clockg.count() << "sec\n" << endl;
     cout << "\t FLT Time: " << clockh.count() << "sec\n" << endl;
@@ -246,7 +241,7 @@ std::vector<std::vector<uint64_t>> AddVectors(
     for (size_t i = 0; i < v1.size(); ++i) {
         result[i].resize(v1[i].size());
         for (size_t j = 0; j < v1[i].size(); ++j) {
-            result[i][j] = (v1[i][j] + v2[i][j]) % 786433;
+            result[i][j] = (v1[i][j] + v2[i][j]) % ptxt_modulus;
         }
     }
 

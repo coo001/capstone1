@@ -98,19 +98,20 @@ void sophomr() {
 
     vector<int> pertinentIdx;
     vector<int> pertinentIdx2;
+    vector<int> pertinentIdx3;
     sampleIdx(pertinentIdx);
     sampleIdx(pertinentIdx2);
-    //std::random_device rd;
-    //std::mt19937 g(rd());
-    //std::shuffle(pertinentIdx.begin(), pertinentIdx.end(), g);
-    //std::shuffle(pertinentIdx2.begin(), pertinentIdx2.end(), g);
+    sampleIdx(pertinentIdx3);
 
     vector<vector<uint64_t>> signals1_a(num_transaction,vector<uint64_t>(PSparam.n));
     vector<vector<uint64_t>> signals1_b(num_transaction,vector<uint64_t>(PSparam.ell));
     vector<vector<uint64_t>> signals2_a(num_transaction,vector<uint64_t>(PSparam.n));
     vector<vector<uint64_t>> signals2_b(num_transaction,vector<uint64_t>(PSparam.ell));
+    vector<vector<uint64_t>> signals3_a(num_transaction, vector<uint64_t>(PSparam.n));
+    vector<vector<uint64_t>> signals3_b(num_transaction, vector<uint64_t>(PSparam.ell));
     simulateSignals(signals1_a, signals1_b, pertinentIdx, PSpk);
     simulateSignals(signals2_a, signals2_b, pertinentIdx2, PSpk);
+    simulateSignals(signals3_a, signals3_b, pertinentIdx3, PSpk);
 
     cout << "Payload & Signal Simulation Finished!\n" << endl;
 
@@ -137,10 +138,8 @@ void sophomr() {
 
     std::vector<std::vector<uint64_t>> signals_a = AddVectors(signals1_a, signals2_a);
     std::vector<std::vector<uint64_t>> signals_b = AddVectors(signals1_b, signals2_b);
-    for (int i = 0; i < 2; i++) {
-        signals_a = AddVectors(signals_a, signals2_a);
-        signals_b = AddVectors(signals_b, signals2_b);
-    }
+    signals_a = AddVectors(signals_a, signals3_a);
+    signals_b = AddVectors(signals_b, signals3_b);
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t Addvectors time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
@@ -191,5 +190,5 @@ void sophomr() {
     cout << "Client-side Decoding Finished!" << endl;
     cout << "Client-side Decoding Time: " << chrono::duration<double, milli>(clock_end - clock_start).count() << "ms\n" << endl;
 
-    checkResult(decodedIdx, decodedPayload, pertinentIdx, pertinentIdx2, payloads);
+    checkResult(decodedIdx, decodedPayload, pertinentIdx, pertinentIdx2, pertinentIdx3, payloads);
 }

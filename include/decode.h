@@ -103,7 +103,6 @@ void decode(std::vector<int>& decodedIdx,
     rotate(digest_vec.begin() + degree_trace_half, digest_vec.begin() + degree_trace - trace_shift, digest_vec.begin() + degree_trace);
 
     std::vector<int64_t> digest_idx(num_pertinent);
-    std::cout << "num_pertinent:" << num_pertinent << std::endl;
     std::vector<std::vector<int64_t>> digest_payload(payload_len, std::vector<int64_t>(num_pertinent));
     for (int j = 0; j < num_pertinent; j++) {
             digest_idx[j] = digest_vec[j];
@@ -120,28 +119,11 @@ void decode(std::vector<int>& decodedIdx,
 
     decodeIdx(idx_ZZ_p, digest_idx);
     decodePayload(decodedPayload, digest_payload, idx_ZZ_p);
-
-    std::cout << "digest_idx: ";
-    for (size_t i = 0; i < digest_idx.size(); ++i) {
-        std::cout << digest_idx[i] << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "idx_ZZ_p: ";
-    for (size_t i = 0; i < idx_ZZ_p.size(); ++i) {
-        std::cout << idx_ZZ_p[i] << " ";
-    }
-    std::cout << std::endl;
    
     decodedIdx.resize(idx_ZZ_p.size());
     for (size_t i = 0; i < decodedIdx.size(); i++) {
         decodedIdx[i] = NTL::conv<int>(idx_ZZ_p[i]) - 1;
     }
-    std::cout << "decodedidx: ";
-    for (size_t i = 0; i < decodedIdx.size(); ++i) {
-        std::cout << decodedIdx[i] << " ";
-    }
-    std::cout << std::endl;
 }
 
 std::vector<int> GetCommonElements(const std::vector<int>& v1, const std::vector<int>& v2) {
@@ -172,6 +154,7 @@ void checkResult(const std::vector<int>& decodedIdx,
                     const std::vector<std::vector<uint32_t>>& decodedPayload, 
                     const std::vector<int>& pertinentIdx,
                     const std::vector<int>& pertinentIdx2,
+                    const std::vector<int>& pertinentIdx3,
                     const std::vector<std::vector<uint32_t>>& payloads)
 {
     std::vector<std::vector<uint32_t>> pertinentPayload(pertinentIdx.size(), std::vector<uint32_t>(payload_len));
@@ -194,7 +177,13 @@ void checkResult(const std::vector<int>& decodedIdx,
         std::cout << "Index " << i << ": " << pertinentIdx2[i] << std::endl;
     }
 
+    std::cout << "\n=== PertinentIdx3 ===" << std::endl;
+    for (size_t i = 0; i < pertinentIdx3.size(); ++i) {
+        std::cout << "Index " << i << ": " << pertinentIdx3[i] << std::endl;
+    }
+
     std::vector<int> p = GetCommonElements(pertinentIdx, pertinentIdx2);
+    p = GetCommonElements(p, pertinentIdx3);
 
     if (AreVectorsEqualIgnoreOrder(p,decodedIdx)){//}&& pertinentPayload == decodedPayload) {
         std::cout << "Result is Correct!" << std::endl;

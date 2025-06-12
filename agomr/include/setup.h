@@ -199,16 +199,19 @@ void simulatePayloads(std::vector<std::vector<uint32_t>>& payloads)
     sort(pertinentIdx.begin(), pertinentIdx.end());
 }*/
 
-void sampleIdx(std::vector<int>& pertinentIdx)//100부터 109 고정 나머지 랜덤
+void sampleIdx(std::vector<int>& pertinentIdx, bool a)//100부터 109 고정 나머지 랜덤
 {
     auto dug = lbcrypto::DiscreteUniformGeneratorImpl<NativeVector>();
     dug.SetModulus(num_transaction);
 
-    for (int i = 100; i < 110; i++) {
-        pertinentIdx.push_back(i);
+    for (int i = 100; i < 102; i++) {
+        if (a)
+            pertinentIdx.push_back(i);
+        else
+            pertinentIdx.push_back(i + 100);
     }
 
-    for (int i = 0; i < num_pertinent - 10; i++) {
+    for (int i = 0; i < num_pertinent - 2; i++) {
         uint64_t temp = dug.GenerateInteger().ConvertToInt();
         while (find(pertinentIdx.begin(), pertinentIdx.end(), temp) != pertinentIdx.end()) {
             temp = dug.GenerateInteger().ConvertToInt();

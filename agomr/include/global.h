@@ -2,7 +2,8 @@
 int payload_size = 0;//612 * 8;
 
 int num_transaction = 65536;
-int num_pertinent = 20;
+int num_pertinent = 10;
+int num_person = 4;
 
 int ptxt_modulus = 786433;
 int degree = 65536;

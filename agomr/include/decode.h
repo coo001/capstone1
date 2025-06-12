@@ -32,7 +32,7 @@ void decodeIdx(std::vector<NTL::ZZ_p>& idx_ZZ_p, const std::vector<int64_t>& dig
     }
     NTL::Vec<NTL::Pair<NTL::ZZ_pX, long>> factors;
     CanZass(factors, poly);
-
+    std::cout << poly << std::endl;
     int ss = factors.length();
     idx_ZZ_p.resize(ss);
     for (int i = 0; i < ss; i++) {

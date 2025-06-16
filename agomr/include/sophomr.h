@@ -1,5 +1,4 @@
 ﻿#include "openfhe.h"
-
 #include "signal.h"
 #include "global.h"
 #include "param.h"
@@ -62,16 +61,13 @@ static uint64_t modInv(uint64_t a, uint64_t m) {
     return uint64_t(t);
 }
 
-// --- 2) G×G 행렬의 모듈러 역행렬 ---
-// A 가 G×G, 결과는 A^{-1} mod t
 static Matrix modInverseMatrix(const Matrix& A, uint64_t t) {
     size_t G = A.size();
-    Matrix B = A;                   // 작업용 복사
-    Matrix I(G, std::vector<uint64_t>(G, 0)); // 단위행렬
+    Matrix B = A; 
+    Matrix I(G, std::vector<uint64_t>(G, 0));
     for (size_t i = 0; i < G; i++) I[i][i] = 1;
 
     for (size_t i = 0; i < G; i++) {
-        // pivot 찾기
         size_t pivot = i;
         while (pivot < G && B[pivot][i] == 0) pivot++;
         if (pivot == G) throw std::runtime_error("modInverseMatrix: singular");
@@ -79,13 +75,11 @@ static Matrix modInverseMatrix(const Matrix& A, uint64_t t) {
             std::swap(B[pivot], B[i]);
             std::swap(I[pivot], I[i]);
         }
-        // pivot 정규화
         uint64_t inv = modInv(B[i][i], t);
         for (size_t j = 0; j < G; j++) {
             B[i][j] = (B[i][j] * inv) % t;
             I[i][j] = (I[i][j] * inv) % t;
         }
-        // 다른 행 제거
         for (size_t r = 0; r < G; r++) if (r != i) {
             uint64_t factor = B[r][i];
             if (!factor) continue;
@@ -96,7 +90,7 @@ static Matrix modInverseMatrix(const Matrix& A, uint64_t t) {
         }
     }
 
-    return I; // 이게 A^{-1} mod t
+    return I;
 }
 
 std::vector<ClueMeta> AGOMR3_GenClue_Batch(
@@ -107,12 +101,11 @@ std::vector<ClueMeta> AGOMR3_GenClue_Batch(
     std::vector<ClueMeta> allClues(totalData);
 
     for (int dataIdx = 0; dataIdx < totalData; ++dataIdx) {
-        if(dataIdx%1000==0)
+        if (dataIdx % 1000 == 0)
             std::cout << "dataIdx : " << dataIdx << std::endl;
         ClueMeta meta;
         meta.clue.M.resize(Gprime, std::vector<uint64_t>(n + ell, 0));
 
-        // Step 1: Randomly select G indices
         std::vector<int> sampled;
         sampleIdx(sampled, dataIdx < num_person);
         meta.pertinentIdx = sampled;
@@ -121,13 +114,11 @@ std::vector<ClueMeta> AGOMR3_GenClue_Batch(
         for (size_t g = 0; g < G; ++g)
             meta.idList[g] = allIDs[sampled[g]];
 
-        // Step 2: PRG Seed and Z
         PRGSeed seed;
         for (auto& s : seed) s = rand();
         meta.clue.seed = seed;
         Matrix Z = generatePRGMatrix(seed, I, Gprime, t);
 
-        // Step 3: Compute id₁,...,id_G × Z = ˜id ∈ Z_t^{G × G'}
         Matrix idTilde(G, std::vector<uint64_t>(Gprime, 0));
         for (size_t g = 0; g < G; g++) {
             for (size_t j = 0; j < Gprime; j++) {
@@ -138,24 +129,10 @@ std::vector<ClueMeta> AGOMR3_GenClue_Batch(
             }
         }
 
-        // Step 4: Generate PS signal for each selected user
         Matrix clueMatrix(G, std::vector<uint64_t>(n + ell, 0));
         for (size_t g = 0; g < G; g++) {
             Signal sig;
             PSsignal(sig, PSpk, PSparam);
-            if (dataIdx == 0 && g == 0) {
-                std::cout << "Signal a: ";
-                for (size_t i = 0; i < sig.a.GetLength(); ++i) {
-                    std::cout << sig.a[i] << " ";
-                }
-                std::cout << std::endl;
-
-                std::cout << "Signal b: ";
-                for (size_t i = 0; i < sig.b.GetLength(); ++i) {
-                    std::cout << sig.b[i] << " ";
-                }
-                std::cout << std::endl;
-            }
 
             for (size_t j = 0; j < n; j++)
                 clueMatrix[g][j] = sig.a[j].ConvertToInt();
@@ -164,14 +141,12 @@ std::vector<ClueMeta> AGOMR3_GenClue_Batch(
                 clueMatrix[g][n + j] = sig.b[j].ConvertToInt();
         }
 
-        // 6) A = idTilde[:,0..G-1] (G×G 정사각), Ainv = A^{-1} mod t
         Matrix A(G, std::vector<uint64_t>(G));
         for (size_t g = 0; g < G; g++)
             for (size_t h = 0; h < G; h++)
                 A[g][h] = idTilde[g][h];
         Matrix Ainv = modInverseMatrix(A, t);
 
-        // 7) M 의 첫 G개 행 채우기: M[k,*] = Ainv[k]·clueMatrix
         for (size_t k = 0; k < G; k++) {
             for (size_t j = 0; j < n + ell; j++) {
                 uint64_t acc = 0;
@@ -181,7 +156,6 @@ std::vector<ClueMeta> AGOMR3_GenClue_Batch(
                 meta.clue.M[k][j] = acc;
             }
         }
-        // 나머지 행은 이미 0
 
         allClues[dataIdx] = std::move(meta);
     }
@@ -191,14 +165,12 @@ std::vector<ClueMeta> AGOMR3_GenClue_Batch(
 
 std::pair<std::vector<uint64_t>, std::vector<uint64_t>>
 RetrieveFromPlainID(const std::vector<uint64_t>& id, const Matrix& M, const PRGSeed& seed) {
-    size_t Gprime = M.size();               // 행 개수
-    size_t n_plus_ell = M[0].size();        // 열 개수
+    size_t Gprime = M.size();               
+    size_t n_plus_ell = M[0].size();     
     size_t I = id.size();
 
-    // Step 1: PRG(seed)로 Z ∈ Z_t^{I x G'} 생성
     Matrix Z = generatePRGMatrix(seed, I, Gprime, ptxt_modulus);
-    
-    // Step 2: id × Z → idZ ∈ Z_t^{G'}
+
     std::vector<uint64_t> idZ(Gprime, 0);
     for (size_t j = 0; j < Gprime; j++) {
         for (size_t i = 0; i < I; i++) {
@@ -206,7 +178,6 @@ RetrieveFromPlainID(const std::vector<uint64_t>& id, const Matrix& M, const PRGS
         }
     }
 
-    // Step 3: idZ × M → signal = idZ · M ∈ Z_t^{n + ell}
     std::vector<uint64_t> signal(n_plus_ell, 0);
     for (size_t j = 0; j < n_plus_ell; j++) {
         for (size_t i = 0; i < Gprime; i++) {
@@ -214,7 +185,6 @@ RetrieveFromPlainID(const std::vector<uint64_t>& id, const Matrix& M, const PRGS
         }
     }
 
-    // Step 4: signal → sig_a, sig_b 분리
     std::vector<uint64_t> sig_a(PSparam.n, 0);
     std::vector<uint64_t> sig_b(PSparam.ell, 0);
 
@@ -232,7 +202,7 @@ RetrieveFromPlainID(const std::vector<uint64_t>& id, const Matrix& M, const PRGS
 void retrieve(
     std::vector<std::vector<uint64_t>>& sig_a,
     std::vector<std::vector<uint64_t>>& sig_b,
-    const std::vector<uint64_t>& id,                   // id ∈ Z_t^I
+    const std::vector<uint64_t>& id,
     const std::vector<ClueMeta>& clue,
     const PSpk& PSpk
 ) {
@@ -241,33 +211,15 @@ void retrieve(
 
     int t = 0;
     for (const auto& meta : clue) {
-        //(void)meta;
         const Clue& c = meta.clue;
 
         auto [signal_a, signal_b] = RetrieveFromPlainID(id, c.M, c.seed);
-        /*Signal sig;
-        if(t%20000==0)
-            PSsignal(sig, PSpk, PSparam);
-        else{
-            sig.a = dug.GenerateVector(PSparam.n);
-            sig.b = dug.GenerateVector(PSparam.ell);
-        }*/
-        if (t == 0) {
-            for (auto& sig : signal_a) {
-                std::cout << sig << std::endl;
-            }
-            for (auto& sig : signal_b) {
-                std::cout << sig << std::endl;
-            }
-        }
-        
+
         for (size_t i = 0; i < static_cast<size_t>(PSparam.n); i++) {
             sig_a[t][i] = signal_a[i];
-            //sig_a[t][i] = sig.a[i].ConvertToInt();
         }
         for (size_t i = 0; i < static_cast<size_t>(PSparam.ell); i++) {
             sig_b[t][i] = signal_b[i];
-            //sig_b[t][i] = sig.b[i].ConvertToInt();
         }
         t++;
     }
@@ -312,6 +264,41 @@ void printPertinentIndices(const std::vector<ClueMeta>& clueList) {
     std::cout << "===============================================\n";
 }
 
+void generate_coeff_rangeCheck(int r, uint32_t p) {
+    std::vector<uint64_t> coeffs = { 1 }; // 초기 다항식: 상수항 1
+
+    for (int i = 0; i <= r; ++i) {
+        std::vector<uint64_t> new_factor = {
+            static_cast<uint64_t>((p - (i * i % p)) % p), 0, 1
+        };
+        std::vector<uint64_t> new_coeffs(coeffs.size() + 2, 0);
+
+        for (size_t deg1 = 0; deg1 < coeffs.size(); ++deg1) {
+            for (size_t deg2 = 0; deg2 < new_factor.size(); ++deg2) {
+                new_coeffs[deg1 + deg2] += (coeffs[deg1] * new_factor[deg2]) % p;
+                new_coeffs[deg1 + deg2] %= p;
+            }
+        }
+
+        coeffs = std::move(new_coeffs);
+    }
+
+    // 짝수 차수 계수 추출
+    std::vector<uint32_t> filtered;
+    for (size_t i = 0; i < coeffs.size(); i += 2) {
+        filtered.push_back(static_cast<uint32_t>(coeffs[i]));
+    }
+
+    // 전역 변수에 8개 열로 나눠서 저장
+    size_t k = 8;
+    size_t rows = (filtered.size() + k - 1) / k;
+    coeff_rangeCheck.assign(rows, std::vector<uint32_t>(k, 0));
+
+    for (size_t i = 0; i < filtered.size(); ++i) {
+        coeff_rangeCheck[i / k][i % k] = filtered[i];
+    }
+}
+
 
 void sophomr() {
     using namespace std;
@@ -319,6 +306,7 @@ void sophomr() {
 
     chrono::high_resolution_clock::time_point clock_start, clock_end;
     updateGlobal();
+    generate_coeff_rangeCheck(range_r, ptxt_modulus);
 
     /*////////////////////////////////////////////////////////////////
 
@@ -349,9 +337,9 @@ void sophomr() {
 
     auto keyPair = context->KeyGen();
     context->EvalMultKeyGen(keyPair.secretKey);
-    context->EvalRotateKeyGen(keyPair.secretKey, {1, b_tilde1});
+    context->EvalRotateKeyGen(keyPair.secretKey, { 1, b_tilde1 });
 
-    auto PSsk_enc = encryptPSsk(context, keyPair.secretKey, PSsk); 
+    auto PSsk_enc = encryptPSsk(context, keyPair.secretKey, PSsk);
 
     /*
                 1-3. HE Setup (Compression & Ring-Switching)
@@ -363,17 +351,17 @@ void sophomr() {
     enable(context_comp);
     auto keyPair_comp = context_comp->KeyGen();
 
-	BFVparam.SetRingDim(degree_trace);
+    BFVparam.SetRingDim(degree_trace);
     CryptoContext<DCRTPoly> context_trace = GenCryptoContext(BFVparam);
     enable(context_trace);
     auto keyPair_trace = context_trace->KeyGen();
 
-	liftsk(keyPair_comp, keyPair_trace);
+    liftsk(keyPair_comp, keyPair_trace);
 
-	auto swk = context->GetScheme()->KeySwitchGen(keyPair.secretKey, keyPair_comp.secretKey);
+    auto swk = context->GetScheme()->KeySwitchGen(keyPair.secretKey, keyPair_comp.secretKey);
 
-    vector<int> step_comp = {1, b_tilde2, degree_half, degree_trace_half};
-    for (int j = 1; j < degree_half / numrow_po2; j*=2) { 
+    vector<int> step_comp = { 1, b_tilde2, degree_half, degree_trace_half };
+    for (int j = 1; j < degree_half / numrow_po2; j *= 2) {
         step_comp.push_back(numrow_po2 * j);
     }
     context_comp->EvalRotateKeyGen(keyPair_comp.secretKey, step_comp);
@@ -387,7 +375,7 @@ void sophomr() {
     saveKeys(context, context_comp, PSsk_enc, swk);
 
 
-    
+
     /*////////////////////////////////////////////////////////////////
 
 
@@ -398,12 +386,12 @@ void sophomr() {
 
     cout << "2. Clue Generate Started!\n" << endl;
 
-    vector<vector<uint32_t>> payloads(num_transaction,vector<uint32_t>(payload_len));
+    vector<vector<uint32_t>> payloads(num_transaction, vector<uint32_t>(payload_len));
     simulatePayloads(payloads);
 
     std::vector<Vector> allIDs = generateAllIDs(num_transaction, 10, ptxt_modulus);
     std::vector<ClueMeta> clue = AGOMR3_GenClue_Batch(allIDs, ptxt_modulus, 10, num_person, 10, PSparam.n, PSparam.ell, num_transaction, PSpk);
-   
+
     cout << "Clue Generate Finished!\n" << endl;
 
 
@@ -435,9 +423,16 @@ void sophomr() {
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t Clue Retrieve time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
+    
+    // second id
+    Vector my_id2 = allIDs[100];
+    std::vector<std::vector<uint64_t>> signals2_a(num_transaction, vector<uint64_t>(PSparam.n));
+    std::vector<std::vector<uint64_t>> signals2_b(num_transaction, vector<uint64_t>(PSparam.ell));
+    retrieve(signals2_a, signals2_b, my_id2, clue, PSpk);
 
     clock_start = chrono::high_resolution_clock::now();
-    detect(PV, signals_a, signals_b, context, PSsk_enc, swk, keyPair_trace.secretKey);
+    //detect(PV, signals_a, signals_b, context, PSsk_enc, swk, keyPair_trace.secretKey);
+    detect2(PV, signals_a, signals_b, signals2_a, signals2_b, context, PSsk_enc, swk, keyPair_trace.secretKey);
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t Detection Finished!" << endl;

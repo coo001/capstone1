@@ -157,6 +157,9 @@ void checkResult(const std::vector<int>& decodedIdx,
     for (size_t i = 0; i < pertinentIdx.size(); i++) {
         pertinentPayload[i] = payloads[pertinentIdx[i]];
     }
+    for (auto& p : decodedIdx) {
+        std::cout << p << std::endl;
+    }
 
     if (pertinentIdx == decodedIdx && pertinentPayload == decodedPayload) {
         std::cout << "Result is Correct!" << std::endl;

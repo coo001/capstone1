@@ -227,25 +227,33 @@ void retrieve(
 
 void check(const std::vector<int>& decodedIdx,
     const std::vector<ClueMeta>& clueList,
-    const Vector& my_id) {
+    const std::vector<Vector>& id_set) {
     std::cout << "\n===== [Check Result] =====\n";
 
     for (int idx : decodedIdx) {
         std::cout << "idx: " << idx << std::endl;
         const ClueMeta& meta = clueList[idx];
-        bool match = false;
+        bool match = true;
 
-        for (const auto& id : meta.idList) {
-            if (id == my_id) {
-                match = true;
+        for (const Vector& id : id_set) {
+            bool found = false;
+            for (const Vector& meta_id : meta.idList) {
+                if (id == meta_id) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                match = false;
                 break;
             }
         }
+
         if (match) {
-            std::cout << "  [✓] idx " << idx << ": my_id is in pertinent id list\n";
+            std::cout << "  [✓] idx " << idx << ": all my_ids are in pertinent id list\n";
         }
         else {
-            std::cout << "  [✗] idx " << idx << ": my_id NOT in pertinent id list\n";
+            std::cout << "  [✗] idx " << idx << ": some my_ids NOT in pertinent id list\n";
         }
     }
 
@@ -415,24 +423,27 @@ void sophomr() {
 
     vector<Ciphertext<DCRTPoly>> PV(numctxt);
 
-    // 평문 id 사용
-    Vector my_id = allIDs[100];
-    std::vector<std::vector<uint64_t>> signals_a(num_transaction, vector<uint64_t>(PSparam.n));
-    std::vector<std::vector<uint64_t>> signals_b(num_transaction, vector<uint64_t>(PSparam.ell));
-    retrieve(signals_a, signals_b, my_id, clue, PSpk);
+      // 평문 id set 사용
+    std::vector<Vector> id_set(id_num);
+
+    for (int i = 0; i < id_num; i++) {
+        id_set[i] = allIDs[num_set[i]];
+    }
+
+    std::vector<std::vector<std::vector<uint64_t>>> signals_a(id_num,
+        std::vector<std::vector<uint64_t>>(num_transaction, std::vector<uint64_t>(PSparam.n)));
+    std::vector<std::vector<std::vector<uint64_t>>> signals_b(id_num,
+        std::vector<std::vector<uint64_t>>(num_transaction, std::vector<uint64_t>(PSparam.ell)));
+
+    for (int i = 0; i < id_num; i++) {
+        retrieve(signals_a[i], signals_b[i], id_set[i], clue, PSpk);
+    }
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t Clue Retrieve time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
-    
-    // second id
-    Vector my_id2 = allIDs[100];
-    std::vector<std::vector<uint64_t>> signals2_a(num_transaction, vector<uint64_t>(PSparam.n));
-    std::vector<std::vector<uint64_t>> signals2_b(num_transaction, vector<uint64_t>(PSparam.ell));
-    retrieve(signals2_a, signals2_b, my_id2, clue, PSpk);
 
     clock_start = chrono::high_resolution_clock::now();
-    //detect(PV, signals_a, signals_b, context, PSsk_enc, swk, keyPair_trace.secretKey);
-    detect2(PV, signals_a, signals_b, signals2_a, signals2_b, context, PSsk_enc, swk, keyPair_trace.secretKey);
+    detect(PV, signals_a, signals_b, context, PSsk_enc, swk, keyPair_trace.secretKey);
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t Detection Finished!" << endl;
@@ -477,6 +488,6 @@ void sophomr() {
     cout << "Client-side Decoding Finished!" << endl;
     cout << "Client-side Decoding Time: " << chrono::duration<double, milli>(clock_end - clock_start).count() << "ms\n" << endl;
 
-    check(decodedIdx, clue, my_id);
+    check(decodedIdx, clue, id_set);
     return;
 }

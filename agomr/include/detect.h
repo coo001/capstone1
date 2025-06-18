@@ -249,8 +249,8 @@ std::vector<std::vector<uint64_t>> AddVectors(
 }
 
 void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output, 
-                const std::vector<std::vector<uint64_t>>& signals_a, 
-                const std::vector<std::vector<uint64_t>>& signals_b,
+                const std::vector<std::vector<std::vector<uint64_t>>>& signals_a, 
+                const std::vector<std::vector<std::vector<uint64_t>>>& signals_b,
                 const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context, 
                 const lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& PSsk_enc, 
                 const lbcrypto::EvalKey<lbcrypto::DCRTPoly>& swk,
@@ -262,11 +262,24 @@ void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     chrono::high_resolution_clock::time_point clock_start, clock_end;
 
     vector<vector<Ciphertext<DCRTPoly>>> PV_ell(numctxt, vector<Ciphertext<DCRTPoly>>(PSparam.ell));
-    
+    vector<vector<Ciphertext<DCRTPoly>>> PV_sum(numctxt, vector<Ciphertext<DCRTPoly>>(PSparam.ell));
+
     cout << "\t\t Affine Transform Started!\n" << endl;
     clock_start = chrono::high_resolution_clock::now();
     
-    affine(PV_ell, signals_a, signals_b, context, PSsk_enc);
+    for (size_t i = 0; i < signals_a.size(); i++) {
+        affine(PV_ell, signals_a[i], signals_b[i], context, PSsk_enc);
+        if (i == 0) {
+            PV_sum = PV_ell;
+        }
+        else {
+            for (int k = 0; k < numctxt; ++k) {
+                for (int j = 0; j < PSparam.ell; ++j) {
+                    context->EvalAddInPlace(PV_sum[k][j], PV_ell[k][j]);
+                }
+            }
+        }
+    }
     
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t\t Affine Transform Finished!" << endl;
@@ -276,51 +289,7 @@ void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     cout << "\t\t RangeCheck Started!\n" << endl;
     clock_start = chrono::high_resolution_clock::now();
    
-    rangeCheck(output, PV_ell, context, swk, sk);
-
-    clock_end = chrono::high_resolution_clock::now();
-    cout << "\t\t RangeCheck Finished!" << endl;
-    cout << "\t\t RangeCheck time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
-}
-
-void detect2(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
-    const std::vector<std::vector<uint64_t>>& signals_a,
-    const std::vector<std::vector<uint64_t>>& signals_b,
-    const std::vector<std::vector<uint64_t>>& signals2_a,
-    const std::vector<std::vector<uint64_t>>& signals2_b,
-    const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context,
-    const lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& PSsk_enc,
-    const lbcrypto::EvalKey<lbcrypto::DCRTPoly>& swk,
-    const lbcrypto::PrivateKey<lbcrypto::DCRTPoly>& sk)
-{
-    using namespace std;
-    using namespace lbcrypto;
-
-    chrono::high_resolution_clock::time_point clock_start, clock_end;
-
-    vector<vector<Ciphertext<DCRTPoly>>> PV_ell(numctxt, vector<Ciphertext<DCRTPoly>>(PSparam.ell));
-    vector<vector<Ciphertext<DCRTPoly>>> PV_ell2(numctxt, vector<Ciphertext<DCRTPoly>>(PSparam.ell));
-
-    cout << "\t\t Affine Transform Started!\n" << endl;
-    clock_start = chrono::high_resolution_clock::now();
-
-    affine(PV_ell, signals_a, signals_b, context, PSsk_enc);
-    affine(PV_ell2, signals2_a, signals2_b, context, PSsk_enc);
-    for (int i = 0; i < numctxt; ++i) {
-        for (int j = 0; j < PSparam.ell; ++j) {
-            context->EvalAddInPlace(PV_ell[i][j], PV_ell2[i][j]);
-        }
-    }
-
-    clock_end = chrono::high_resolution_clock::now();
-    cout << "\t\t Affine Transform Finished!" << endl;
-    cout << "\t\t Affine Transform time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
-
-
-    cout << "\t\t RangeCheck Started!\n" << endl;
-    clock_start = chrono::high_resolution_clock::now();
-
-    rangeCheck(output, PV_ell, context, swk, sk);
+    rangeCheck(output, PV_sum, context, swk, sk);
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t\t RangeCheck Finished!" << endl;

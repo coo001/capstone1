@@ -186,34 +186,19 @@ void simulatePayloads(std::vector<std::vector<uint32_t>>& payloads)
     }
 }
 
-/*void sampleIdx(std::vector<int>& pertinentIdx)
-{
-    auto dug = lbcrypto::DiscreteUniformGeneratorImpl<NativeVector>();
-    dug.SetModulus(num_transaction);
-
-    for (int i = 0; i < num_pertinent; i++) {
-        uint64_t temp = dug.GenerateInteger().ConvertToInt();
-        while(find(pertinentIdx.begin(), pertinentIdx.end(), temp) != pertinentIdx.end()){
-            temp = dug.GenerateInteger().ConvertToInt();
-        }
-        pertinentIdx.push_back(temp);
-    }
-    sort(pertinentIdx.begin(), pertinentIdx.end());
-}*/
-
 void sampleIdx(std::vector<int>& pertinentIdx, bool a)//100ºÎÅÍ 109 °íÁ¤ ³ª¸ÓÁö ·£´ý
 {
     auto dug = lbcrypto::DiscreteUniformGeneratorImpl<NativeVector>();
     dug.SetModulus(num_transaction);
 
-    for (int i = 100; i < 102; i++) {
+    for (int i = 100; i < 103; i++) {
         if (a)
             pertinentIdx.push_back(i);
         else
             pertinentIdx.push_back(i + 100);
     }
 
-    for (int i = 0; i < num_pertinent - 2; i++) {
+    for (int i = 0; i < num_pertinent - 3; i++) {
         uint64_t temp = dug.GenerateInteger().ConvertToInt();
         while (find(pertinentIdx.begin(), pertinentIdx.end(), temp) != pertinentIdx.end()) {
             temp = dug.GenerateInteger().ConvertToInt();

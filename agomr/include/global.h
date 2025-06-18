@@ -10,7 +10,6 @@ int degree = 65536;
 
 int NumLargeDigits = 2;
 int ScalingModSize = 60;
-int MultiplicativeDepth = 40;
 
 int NumLargeDigits_comp = 1;
 int MultiplicativeDepth_comp = 1;
@@ -29,16 +28,9 @@ int trace_shift;
 
 param PSparam(256, ptxt_modulus, 2, 80, 0.5); 
 
+std::vector<int> num_set = { 100, 101, 102, 103, 104 };
 
-//r = 39
-int range_r = 39;
+int id_num = num_set.size();
+int range_r = id_num * 13;
+int MultiplicativeDepth = 40 + id_num; // 동형 연산 깊이
 std::vector<std::vector<uint32_t>> coeff_rangeCheck;
-/*=
-{
-{0,232953,198154,758413,195212,181399,772174,658710},
-{104565,151354,451694,579908,234693,668615,231936,391627},
-{317379,521977,569697,386053,399731,721882,722879,263501},
-{394458,559203,749800,195862,146633,65481,454739,1527},
-{6890,695671,605212,54488,487754,577732,412310,628533},
-{764293,1,0,0,0,0,0,0}
-};*/

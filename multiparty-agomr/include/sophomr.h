@@ -538,6 +538,10 @@ void sophomr() {
 
     auto keyPair_trace = context_trace->MultipartyKeyGen(secretKeys);
     auto pubkey = context_trace->MultiAddPubKeys(keyPair_trace1.publicKey, keyPair_trace2.publicKey, keyPair_trace2.publicKey->GetKeyTag());
+    if (pubkey->GetCryptoContext() != context_trace) {
+        std::cerr << "Warning: pubkey and context_trace do not match!" << std::endl;
+    }
+
     liftsk(keyPair_comp, keyPair_trace);
 
     auto swk = context->GetScheme()->KeySwitchGen(keyPair.secretKey, keyPair_comp.secretKey);
@@ -662,7 +666,7 @@ void sophomr() {
         vector<int> decodedIdx;
         vector<vector<uint32_t>> decodedPayload;
 
-        decode(decodedIdx, decodedPayload, digest, context_trace, secretKeys);
+        decode(decodedIdx, decodedPayload, digest, context_trace, secretKeys, keyPair_trace.secretKey);
 
         clock_end = chrono::high_resolution_clock::now();
         cout << "Client-side Decoding Finished!" << endl;

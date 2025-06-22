@@ -324,152 +324,52 @@ void generate_coeff_rangeCheck(int r, uint32_t p) {
     }
 }
 
-lbcrypto::PublicKey<lbcrypto::DCRTPoly> MergePublicKeys(
-    const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& cc,
-    const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& pk1,
-    const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& pk2) {
-    using namespace lbcrypto;
-
-    // new public key object to return
-    auto pk_total = std::make_shared<PublicKeyImpl<DCRTPoly>>(cc);
-
-    // 가져오기
-    auto a1 = pk1->GetPublicElements()[0];
-    auto b1 = pk1->GetPublicElements()[1];
-    auto a2 = pk2->GetPublicElements()[0];
-    auto b2 = pk2->GetPublicElements()[1];
-
-    // 더하기
-    auto a_total = a1 + a2;
-    auto b_total = b1 + b2;
-
-    std::vector<DCRTPoly> pubElements = { a_total, b_total };
-    pk_total->SetPublicElements(pubElements);
-    pk_total->SetKeyTag(pk1->GetKeyTag());
-
-    return pk_total;
-}
-
-lbcrypto::KeyPair<lbcrypto::DCRTPoly> MergeKeyPairs(
-    const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context,
-    const lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair1,
-    const lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair2) {
-    using namespace std;
-    using namespace lbcrypto;
-
-    // 1. SecretKey 추출
-    auto sk1 = keyPair1.secretKey->GetPrivateElement();
-    auto sk2 = keyPair2.secretKey->GetPrivateElement();
-
-    // 2. 둘 다 Format 변환 (NTT 도메인 등 연산 일관성 위해)
-    sk1.SwitchFormat();
-    sk2.SwitchFormat();
-
-    // 3. 비밀키 합산
-    auto sk_sum = sk1 + sk2;
-
-    // 4. 다시 Format 돌리기
-    sk_sum.SwitchFormat();
-
-    // 5. 새로운 SecretKey 객체 생성
-    auto sk_total = std::make_shared<PrivateKeyImpl<DCRTPoly>>(context);
-    sk_total->SetPrivateElement(sk_sum);
-
-    // 6. 새로운 PublicKey 생성
-    auto pk_total = MergePublicKeys(context, keyPair1.publicKey, keyPair2.publicKey);
-
-    // 7. 합산된 KeyPair 생성 및 반환
-    KeyPair<DCRTPoly> keyPair_total;
-    keyPair_total.secretKey = sk_total;
-    keyPair_total.publicKey = pk_total;
-
-    return keyPair_total;
-}
-
-void liftsk2(
-    lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair_comp,
-    const lbcrypto::PrivateKey<lbcrypto::DCRTPoly>& fusedSecretKey   // 단일 trace 대신 fused
-) {
-    using namespace lbcrypto;
-
-    // comp 쪽 비밀키 요소 가져오기
-    auto sk_comp = keyPair_comp.secretKey->GetPrivateElement();
-    sk_comp.SwitchFormat();
-
-    // fused trace 키 하나로 리프팅
-    auto sk_trace = fusedSecretKey->GetPrivateElement();
-    sk_trace.SwitchFormat();
-
-    for (size_t i = 0; i < sk_trace.GetNumOfElements(); i++) {
-        auto temp_comp = sk_comp.GetElementAtIndex(i);
-        auto temp_trace = sk_trace.GetElementAtIndex(i);
-        for (size_t j = 0; j < sk_comp.GetElementAtIndex(i).GetLength(); j++) {
-            temp_comp[j] = 0;
-        }
-        for (size_t j = 0; j < sk_trace.GetElementAtIndex(i).GetLength(); j++) {
-            auto coeff_trace = temp_trace[j].ConvertToInt();
-            if (coeff_trace == sk_trace.GetElementAtIndex(i).GetModulus() - 1) {
-                temp_comp[j * dim_trace] = sk_comp.GetElementAtIndex(i).GetModulus() - 1;
-            }
-            else {
-                temp_comp[j * dim_trace] = coeff_trace;
-            }
-        }
-        sk_comp.SetElementAtIndex(i, temp_comp);
-    }
-    sk_comp.SwitchFormat();
-    keyPair_comp.secretKey->SetPrivateElement(sk_comp);
-}
-
 void updateTraceInfo2(
     const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_comp,
     const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_trace,
     const lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair_comp,
     const lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair_trace,
-    const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& pubkey
-    ) {
+    const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& pubkey_trace
+) {
+    using namespace std;
     using namespace lbcrypto;
 
-    // 1) comp 컨텍스트에서 인덱스용 plaintext 생성⋅암호화
-    std::vector<int64_t> vec(degree, 0);
+    vector<int64_t> vec(degree, 0);
     for (int i = 0; i < degree_trace_half; i++) {
         vec[i] = i * dim_trace;
         vec[i + degree_half] = (i + degree_trace_half) * dim_trace;
     }
-    auto ptxt_comp = context_comp->MakePackedPlaintext(vec);
-    auto ctxt_comp = context_comp->Encrypt(keyPair_comp.secretKey, ptxt_comp);
+    Plaintext ptxt = context_comp->MakePackedPlaintext(vec);
+    Ciphertext<DCRTPoly> ctxt_comp = context_comp->Encrypt(keyPair_comp.secretKey, ptxt);
     ctxt_comp = context_comp->Compress(ctxt_comp);
 
-    // 2) trace 컨텍스트에서 빈 벡터 암호화(원래는 swap/shift 정보 추출용)
-    std::vector<int64_t> vec_null(degree_trace);
+    vector<int64_t> vec_null(degree_trace);
     auto ptxt_null = context_trace->MakePackedPlaintext(vec_null);
-    auto ctxt_trace = context_trace->Encrypt(pubkey, ptxt_null);
+    auto ctxt_trace = context_trace->Encrypt(pubkey_trace, ptxt_null);
     ctxt_trace = context_trace->Compress(ctxt_trace);
 
-    // 3) 내부 폴리 변환 후 comp→trace로 재배치
-    auto poly_c = ctxt_comp->GetElements();
-    auto poly_t = ctxt_trace->GetElements();
+    auto poly_comp = ctxt_comp->GetElements();
+    auto poly_trace = ctxt_trace->GetElements();
     for (int i = 0; i < 2; i++) {
-        poly_c[i].SwitchFormat();
-        poly_t[i].SwitchFormat();
+        poly_comp[i].SwitchFormat();
+        poly_trace[i].SwitchFormat();
     }
     for (int i = 0; i < 2; i++) {
-        auto pc = poly_c[i].GetElementAtIndex(0);
-        auto pt = poly_t[i].GetElementAtIndex(0);
-        for (size_t k = 0; k < pt.GetLength(); k++) {
-            pt[k] = pc[dim_trace * k].Mod(pt.GetModulus());
+        NativePoly poly_comp_ = poly_comp[i].GetElementAtIndex(0);
+        NativePoly poly_trace_ = poly_trace[i].GetElementAtIndex(0);
+        for (size_t k = 0; k < poly_trace_.GetLength(); k++) {
+            poly_trace_[k] = poly_comp_[dim_trace * k].Mod(poly_trace_.GetModulus());
         }
-        poly_t[i].SetElementAtIndex(0, pt);
+        poly_trace[i].SetElementAtIndex(0, poly_trace_);
     }
-    for (int i = 0; i < 2; i++)
-        poly_t[i].SwitchFormat();
+    for (int i = 0; i < 2; i++) {
+        poly_trace[i].SwitchFormat();
+    }
+    ctxt_trace->SetElements(poly_trace);
 
-    ctxt_trace->SetElements(poly_t);
-
-    // 4) fusedSecretKey로 복호화 → swap/shift 정보 추출
     Plaintext ptxt_res;
     context_trace->Decrypt(keyPair_trace.secretKey, ctxt_trace, &ptxt_res);
-    std::vector<int64_t> vec_res = ptxt_res->GetPackedValue();
+    vector<int64_t> vec_res = ptxt_res->GetPackedValue();
 
     trace_swap = vec_res[0] / degree_trace_half;
     trace_shift = vec_res[0] % degree_trace_half;
@@ -529,23 +429,23 @@ void sophomr() {
     CryptoContext<DCRTPoly> context_trace = GenCryptoContext(BFVparam);
     enable(context_trace);
 
-    auto keyPair_trace1 = context_trace->KeyGen();
-    auto keyPair_trace2 = context_trace->MultipartyKeyGen(keyPair_trace1.publicKey, false, true);
+    lbcrypto::KeyPair<lbcrypto::DCRTPoly> keyPair_trace1, keyPair_trace2, keyPair_trace;
+    lbcrypto::PublicKey<lbcrypto::DCRTPoly> pubkey;
+    std::vector<lbcrypto::PrivateKey<lbcrypto::DCRTPoly>> secretKeys;
+    lbcrypto::EvalKey<lbcrypto::DCRTPoly> swk;
 
-    std::vector<lbcrypto::PrivateKey<lbcrypto::DCRTPoly>> secretKeys{
-    keyPair_trace1.secretKey, keyPair_trace2.secretKey
-    };
+    keyPair_trace1 = context_trace->KeyGen();
+    keyPair_trace2 = context_trace->MultipartyKeyGen(keyPair_trace1.publicKey, false, true);
 
-    auto keyPair_trace = context_trace->MultipartyKeyGen(secretKeys);
-    auto pubkey = context_trace->MultiAddPubKeys(keyPair_trace1.publicKey, keyPair_trace2.publicKey, keyPair_trace2.publicKey->GetKeyTag());
-    if (pubkey->GetCryptoContext() != context_trace) {
-        std::cerr << "Warning: pubkey and context_trace do not match!" << std::endl;
-    }
+    secretKeys={keyPair_trace1.secretKey, keyPair_trace2.secretKey};
+
+    keyPair_trace = context_trace->MultipartyKeyGen(secretKeys);
+    pubkey = context_trace->MultiAddPubKeys(keyPair_trace1.publicKey, keyPair_trace2.publicKey, keyPair_trace2.publicKey->GetKeyTag());
 
     liftsk(keyPair_comp, keyPair_trace);
 
-    auto swk = context->GetScheme()->KeySwitchGen(keyPair.secretKey, keyPair_comp.secretKey);
-    
+    swk = context->GetScheme()->KeySwitchGen(keyPair.secretKey, keyPair_comp.secretKey);
+
     vector<int> step_comp = { 1, b_tilde2, degree_half, degree_trace_half };
     for (int j = 1; j < degree_half / numrow_po2; j *= 2) {
         step_comp.push_back(numrow_po2 * j);
@@ -553,13 +453,13 @@ void sophomr() {
     context_comp->EvalRotateKeyGen(keyPair_comp.secretKey, step_comp);
 
     updateTraceInfo2(context_comp, context_trace, keyPair_comp, keyPair_trace, pubkey);
+    std::cout << "trace_swap = " << trace_swap << std::endl;
+    std::cout << "trace_shift = " << trace_shift << std::endl;
 
     cout << "Setup Finished!\n" << endl;
 
     printParam(context, context_trace);
     saveKeys(context, context_comp, PSsk_enc, swk);
-
-
 
     /*////////////////////////////////////////////////////////////////
 
@@ -578,11 +478,12 @@ void sophomr() {
     std::vector<ClueMeta> clue = AGOMR3_GenClue_Batch(allIDs, ptxt_modulus, 10, num_person, 10, PSparam.n, PSparam.ell, num_transaction, PSpk);
 
     cout << "Clue Generate Finished!\n" << endl;
-
+    
     for (int g = 0; g < 1; g++) {
-        num_set.push_back(100);
-        num_set.push_back(101);
-
+        if (g == 0) {
+            num_set.push_back(100);
+            num_set.push_back(101);
+        }
         id_num = num_set.size();
         range_r = id_num < 3 ? 39 : id_num * 14;
         generate_coeff_rangeCheck(range_r, ptxt_modulus);

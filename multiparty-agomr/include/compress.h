@@ -61,6 +61,7 @@ void ringSwitch(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     ctxt_trace->SetElements(poly_trace);
 
     digest = ctxt_trace;
+    digest->SetKeyTag(publicKey_trace->GetKeyTag());
 }
 
 void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest, 

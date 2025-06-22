@@ -13,7 +13,7 @@ int ScalingModSize = 60;
 
 int NumLargeDigits_comp = 1;
 int MultiplicativeDepth_comp = 1;
-int dim_trace = 4;
+int dim_trace = 2;
 
 int payload_len;
 int numctxt;

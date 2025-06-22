@@ -90,26 +90,30 @@ void decode(std::vector<int>& decodedIdx,
     const lbcrypto::PrivateKey<lbcrypto::DCRTPoly>& HEsk2
 )
 {
-    std::cout << "1" << std::endl;
+    using namespace std;
+
+    chrono::high_resolution_clock::time_point clock_start, clock_end;
+    clock_start = chrono::high_resolution_clock::now();
     lbcrypto::Plaintext digest_pt2;
     context->Decrypt(HEsk2, digest, &digest_pt2);
-    std::vector<int64_t> digest_vec = digest_pt2->GetPackedValue();
+    std::vector<int64_t> digest_vec2 = digest_pt2->GetPackedValue();
+    clock_end = chrono::high_resolution_clock::now();
+    cout << "\t single key time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
 
     //std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>> ctexts = { digest };
 
     // Partial decryptions from parties
-
-    std::cout << "2" << std::endl;
+    clock_start = chrono::high_resolution_clock::now();
     auto partial1 = context->MultipartyDecryptLead({ digest }, HEsk[0]);
     auto partial2 = context->MultipartyDecryptMain({ digest }, HEsk[1]);
     // Combine partial decryptions
     std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>> partials = { partial1[0], partial2[0] };
     lbcrypto::Plaintext digest_pt;
     context->MultipartyDecryptFusion(partials, &digest_pt);
-    std::vector<int64_t> digest_vec2 = digest_pt->GetPackedValue();
-    
+    std::vector<int64_t> digest_vec = digest_pt->GetPackedValue();
+    clock_end = chrono::high_resolution_clock::now();
+    cout << "\t multi key time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
 
-    std::cout << "3" << std::endl;
     if (trace_swap == 1) {
         for (int i = 0; i < degree_trace_half; i++) {
             std::swap(digest_vec[i], digest_vec[i + degree_trace_half]);

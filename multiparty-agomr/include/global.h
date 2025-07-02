@@ -28,8 +28,8 @@ int trace_shift;
 
 param PSparam(256, ptxt_modulus, 2, 80, 0.5); 
 
-std::vector<int> num_set;
-int id_num;
+std::vector<int> num_set = { 100,101 };
+int id_num=2;
 int range_r;
 int MultiplicativeDepth = 40; // 동형 연산 깊이
 std::vector<std::vector<uint32_t>> coeff_rangeCheck;

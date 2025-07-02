@@ -429,11 +429,12 @@ void sophomr() {
     CryptoContext<DCRTPoly> context_trace = GenCryptoContext(BFVparam);
     enable(context_trace);
 
+    std::vector< lbcrypto::KeyPair<lbcrypto::DCRTPoly>> keyPair_trace_set;
     lbcrypto::KeyPair<lbcrypto::DCRTPoly> keyPair_trace1, keyPair_trace2, keyPair_trace;
     lbcrypto::PublicKey<lbcrypto::DCRTPoly> pubkey;
     std::vector<lbcrypto::PrivateKey<lbcrypto::DCRTPoly>> secretKeys;
     lbcrypto::EvalKey<lbcrypto::DCRTPoly> swk;
-
+    
     keyPair_trace1 = context_trace->KeyGen();
     keyPair_trace2 = context_trace->MultipartyKeyGen(keyPair_trace1.publicKey, false, true);
 
@@ -480,11 +481,6 @@ void sophomr() {
     cout << "Clue Generate Finished!\n" << endl;
     
     for (int g = 0; g < 1; g++) {
-        if (g == 0) {
-            num_set.push_back(100);
-            num_set.push_back(101);
-        }
-        id_num = num_set.size();
         range_r = id_num < 3 ? 39 : id_num * 14;
         generate_coeff_rangeCheck(range_r, ptxt_modulus);
         cout << "generat group : " << id_num << endl;

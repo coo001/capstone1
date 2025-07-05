@@ -82,7 +82,9 @@ lbcrypto::Ciphertext<lbcrypto::DCRTPoly> encryptPSsk_ckks( //ckks 용 PSsk 암호화
 
     auto PSsk_ptxt = context->MakeCKKSPackedPlaintext(PSsk_vec_dbl);
     auto PSsk_enc = context->Encrypt(HEpk, PSsk_ptxt);
-
+    for (size_t i = 0; i < PSsk_enc->GetElements().size(); ++i) {
+        std::cout << "Element " << i << ": " << PSsk_enc->GetElements()[i] << std::endl;
+    }
     return PSsk_enc;
 }
 
@@ -112,6 +114,43 @@ void liftsk(lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair_comp, const lbcrypto:
     sk_comp.SwitchFormat();
     keyPair_comp.secretKey->SetPrivateElement(sk_comp);
 }
+
+void liftsk2(lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair_comp, const lbcrypto::KeyPair<lbcrypto::DCRTPoly>& keyPair_trace)
+{
+    auto sk_comp = keyPair_comp.secretKey->GetPrivateElement();
+    auto sk_trace = keyPair_trace.secretKey->GetPrivateElement();
+    sk_comp.SwitchFormat();
+    sk_trace.SwitchFormat();
+    for (size_t i = 0; i < sk_trace.GetNumOfElements(); i++) {
+        auto temp_comp = sk_comp.GetElementAtIndex(i);
+        auto temp_trace = sk_trace.GetElementAtIndex(i);
+        size_t len_trace = temp_trace.GetLength();
+        size_t len_comp = temp_comp.GetLength();
+        // Step 1: zero-out temp_comp
+        for (size_t j = 0; j < len_comp; j++) {
+            temp_comp[j] = 0;
+        }
+        // Step 2: Copy and expand
+        for (size_t j = 0; j < len_trace; j++) {
+            auto coeff_trace = temp_trace[j].ConvertToInt();
+            size_t idx_target = j;
+            if (idx_target >= len_comp) {
+                std::cerr << "[WARN] Skipping index " << idx_target << " (out of bounds)\n";
+                continue;
+            }
+            if (coeff_trace == sk_trace.GetElementAtIndex(i).GetModulus() - 1) {
+                temp_comp[idx_target] = sk_comp.GetElementAtIndex(i).GetModulus() - 1;
+            }
+            else {
+                temp_comp[idx_target] = coeff_trace;
+            }
+        }
+        sk_comp.SetElementAtIndex(i, temp_comp);
+    }
+    sk_comp.SwitchFormat();
+    keyPair_comp.secretKey->SetPrivateElement(sk_comp);
+}
+
 
 void updateTraceInfo(const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_comp, 
                         const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_trace, 

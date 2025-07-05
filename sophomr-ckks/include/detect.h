@@ -198,6 +198,48 @@ void rangeCheck(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     }
 } 
 
+void rangeCheck_ckks(
+    std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
+    std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& input,
+    const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context,
+    const lbcrypto::EvalKey<lbcrypto::DCRTPoly>& swk
+) {
+    // One-vector for Logical Negation
+    std::vector<double> vec_one(degree, 1.0);  // degree = slot 개수
+    auto ptxt_one = context->MakeCKKSPackedPlaintext(vec_one);
+
+    // g(x) = (x/r)^{2k} 예시
+    double r = 20.0;         // 허용 범위 (필요시 파라미터로)
+    int k = 10;              // 다항식 sharpness
+    std::vector<double> g_coeffs(2 * k + 1, 0.0);
+    g_coeffs[2 * k] = pow(1.0 / r, 2 * k);
+
+    // h(y) = y^4 예시
+    int m = 10;
+    std::vector<double> h_coeffs(m + 1, 0.0);
+    h_coeffs[m] = 1.0;
+
+    for (int i = 0; i < numctxt; i++) {
+        for (int j = 0; j < PSparam.ell; j++) {
+            // Step 1: g(x) = (x/r)^{2k} 평가
+            input[i][j] = context->EvalPoly(input[i][j], g_coeffs);
+
+            // Step 2: h(y) = y^m 평가 (soft threshold)
+            input[i][j] = context->EvalPoly(input[i][j], h_coeffs);
+
+            // Step 3: Logical Negation (1 - result)
+            input[i][j] = context->EvalSub(ptxt_one, input[i][j]);
+        }
+    }
+
+    for (int i = 0; i < numctxt; i++) {
+        output[i] = product(input[i], context);           // (AND 연산)
+        output[i] = context->Compress(output[i], 2);
+        context->GetScheme()->KeySwitchInPlace(output[i], swk);
+    }
+}
+
+
 void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output, 
                 const std::vector<std::vector<uint64_t>>& signals_a, 
                 const std::vector<std::vector<uint64_t>>& signals_b, 
@@ -221,11 +263,10 @@ void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     cout << "\t\t Affine Transform Finished!" << endl;
     cout << "\t\t Affine Transform time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
 
-
     cout << "\t\t RangeCheck Started!\n" << endl;
     clock_start = chrono::high_resolution_clock::now();
    
-    rangeCheck(output, PV_ell, context, swk);
+    rangeCheck_ckks(output, PV_ell, context, swk);
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t\t RangeCheck Finished!" << endl;

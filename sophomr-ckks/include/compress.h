@@ -1,12 +1,13 @@
 
-void computeVandermonde(std::vector<std::vector<uint64_t>>& vandermonde) 
+void computeVandermonde(std::vector<std::vector<double>>& vandermonde) // uint64_t -> double
 {
     for (size_t j = 0; j < vandermonde[0].size(); j++) {
-        vandermonde[0][j] = j + 1;
+        vandermonde[0][j] = static_cast<double>(j + 1);
     }
     for (size_t i = 1; i < vandermonde.size(); i++) {
-        for (size_t j = 0; j < vandermonde[0].size(); j++) { 
-            vandermonde[i][j] = (vandermonde[i-1][j] * (j + 1)) % ptxt_modulus; 
+        for (size_t j = 0; j < vandermonde[0].size(); j++) {
+            // `% ptxt_modulus` 삭제
+            vandermonde[i][j] = vandermonde[i - 1][j] * static_cast<double>(j + 1);
         }
     }
 }
@@ -19,14 +20,14 @@ void ringSwitch(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     using namespace std;
     using namespace lbcrypto;
 
-    vector<int64_t> vec_mask1(degree,0);
-    vector<int64_t> vec_mask2(degree,0);
+    vector<double> vec_mask1(degree,0);
+    vector<double> vec_mask2(degree,0);
     for (int i = 0; i < degree_trace_half; i++) {
         vec_mask1[i] = dim_trace;
         vec_mask2[i + degree_half] = dim_trace;
     }
-    auto ptxt_mask1 = context_comp->MakePackedPlaintext(vec_mask1);
-    auto ptxt_mask2 = context_comp->MakePackedPlaintext(vec_mask2);
+    auto ptxt_mask1 = context_comp->MakeCKKSPackedPlaintext(vec_mask1);
+    auto ptxt_mask2 = context_comp->MakeCKKSPackedPlaintext(vec_mask2);
 
     Ciphertext<DCRTPoly> temp;
     temp = context_comp->EvalRotate(digest, degree_trace_half);
@@ -36,8 +37,8 @@ void ringSwitch(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
 
     digest = context_comp->Compress(digest);
 
-    vector<int64_t> vec_null(degree_trace);
-    auto ptxt_null = context_trace->MakePackedPlaintext(vec_null);
+    vector<double> vec_null(degree_trace);
+    auto ptxt_null = context_trace->MakeCKKSPackedPlaintext(vec_null);
     auto ctxt_trace = context_trace->Encrypt(publicKey_trace, ptxt_null);
     ctxt_trace = context_trace->Compress(ctxt_trace);
 
@@ -75,8 +76,8 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     using namespace std;
     using namespace lbcrypto;
 
-    vector<int64_t> vec_null(degree);
-    auto ptxt_null = context_comp->MakePackedPlaintext(vec_null);
+    vector<double> vec_null(degree);
+    auto ptxt_null = context_comp->MakeCKKSPackedPlaintext(vec_null);
     for(int i = 0; i < numctxt; i++){
         auto ctxt_temp = context_comp->Encrypt(publicKey_comp, ptxt_null);
         ctxt_temp->SetElements(PV[i]->GetElements());
@@ -84,7 +85,7 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     }
     
     // Precompute Vandermonde
-    vector<vector<uint64_t>> vandermonde(num_pertinent, vector<uint64_t>(payloads.size())); 
+    vector<vector<double>> vandermonde(num_pertinent, vector<double>(payloads.size())); 
     computeVandermonde(vandermonde);
     
     // Baby-step
@@ -98,7 +99,8 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
 
     // Giant-step
     vector<Ciphertext<DCRTPoly>> giant(numctxt);
-    vector<int64_t> ptxt_vec(degree);
+    vector<double> ptxt_vec(degree,0.0);
+    std::cout << 0 << std::endl;
 
     for (int g_ = 0; g_ < g_tilde2 ; g_++) {
         int g = g_tilde2 - g_ - 1;
@@ -124,8 +126,8 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
                     } else {
                         int idxr_q = idxr / num_pertinent - 1;
                         int idxr_r = idxr % num_pertinent;
-                        ptxt_vec[k1] = (vandermonde[idxr_r][idxc1] * payloads[idxc1][idxr_q]) % ptxt_modulus;
-                        ptxt_vec[k2] = (vandermonde[idxr_r][idxc2] * payloads[idxc2][idxr_q]) % ptxt_modulus;
+                        ptxt_vec[k1] = (vandermonde[idxr_r][idxc1] * payloads[idxc1][idxr_q]);
+                        ptxt_vec[k2] = (vandermonde[idxr_r][idxc2] * payloads[idxc2][idxr_q]);
                     }
 
                     k2++; idxr++; idxc1++; idxc2++;
@@ -136,14 +138,26 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
                     }
                 }
 
-                auto ptxt = context_comp->MakePackedPlaintext(ptxt_vec);
+                // 1. 암호문의 현재 레벨과 스케일을 가져옵니다.
+                auto& ctxt_to_mult = rotated_PV[i][b];
+                size_t ctxt_level = ctxt_to_mult->GetLevel();
+                double ctxt_scale = ctxt_to_mult->GetScalingFactor();
 
+                auto ptxt = context_comp->MakeCKKSPackedPlaintext(ptxt_vec, ctxt_scale, ctxt_level, nullptr);
+
+                // 3. 평문의 스케일을 암호문의 스케일과 동일하게 맞춰줍니다.
+                ptxt->SetScalingFactor(ctxt_scale);
+                //giant[i] = rotated_PV[i][b];
+                
+                std::cout << "ptxt 는 잘 됨" << std::endl;
                 if ( b == 0 ) {
                     giant[i] = context_comp->EvalMult(rotated_PV[i][0], ptxt);
                 } else {
                     auto temp = context_comp->EvalMult(rotated_PV[i][b], ptxt);
                     context_comp->EvalAddInPlace(giant[i], temp);
                 }
+                std::cout << "근데 mult가 안 되는 거 같은데" << std::endl;
+             
             }
         }
 
@@ -159,7 +173,7 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
             context_comp->EvalAddInPlace(digest, sum);
         }
     }
-
+    std::cout << 1 << std::endl;
     // Block Summation
     Ciphertext<DCRTPoly> temp;
     for (int j = 1; j < degree_half / numrow_po2; j*=2) {
@@ -169,6 +183,7 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     temp = context_comp->EvalRotate(digest, degree_half);
     context_comp->EvalAddInPlace(digest, temp);
 
+    std::cout << 2 << std::endl;
     // Ring-Switching
     ringSwitch(digest, context_comp, context_trace, publicKey_trace);
 }

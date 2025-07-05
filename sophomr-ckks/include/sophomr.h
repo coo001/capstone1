@@ -45,9 +45,9 @@ void sophomr() {
     CryptoContext<DCRTPoly> context_trace = GenCryptoContext(CKKSparam);
     enable(context_trace);
     auto keyPair_trace = context_trace->KeyGen();
-
-	liftsk(keyPair_comp, keyPair_trace);
-
+    cout << 2 << endl;
+	liftsk2(keyPair_comp, keyPair_trace);
+    cout << 3 << endl;
 	auto swk = context->GetScheme()->KeySwitchGen(keyPair.secretKey, keyPair_comp.secretKey);
 
     vector<int> step_comp = {1, b_tilde2, degree_half, degree_trace_half};

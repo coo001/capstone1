@@ -8,8 +8,8 @@ int ptxt_modulus = 786433;
 int degree = 32768; // 65536도 너무 작다고 이거 2배는 되야한다는데
 
 int NumLargeDigits = 2; 
-int ScalingModSize = 50; // 60크다고 오류뜸 // 근데 이것도 올려도 될듯
-int MultiplicativeDepth = 38;
+int ScalingModSize = 30;// 50; // 60크다고 오류뜸 // 근데 이것도 올려도 될듯
+int MultiplicativeDepth = 60;
 
 int NumLargeDigits_comp = 1;
 int MultiplicativeDepth_comp = 1;

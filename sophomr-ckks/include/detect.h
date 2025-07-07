@@ -1,3 +1,4 @@
+#include "enco.h"
 
 void affine(std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& output, 
             const std::vector<std::vector<uint64_t>>& signals_a, 
@@ -16,13 +17,14 @@ void affine(std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& 
     // Giant-step
     for (int i = 0; i < numctxt; i++) {
         int idx = i * degree;
-        std::vector<double> vec_ints(degree);
+        std::vector<int> vec_ints(degree);
+        std::vector<std::complex<double>> vec_com(degree);
 
         for (int l = 0; l < PSparam.ell; l++) {
             for (int g_ = 0; g_ < g_tilde1 ; g_++) {
                 int g = g_tilde1 - g_ - 1;
                 lbcrypto::Ciphertext<lbcrypto::DCRTPoly> giant;
-
+                //여기가 product 파트임 여길 바꿔야함
                 for (int b = 0; b < b_tilde1; b++) {
                     int k = g * b_tilde1 + b;      
                     if ( k >= PSparam.n ) {break;}
@@ -41,26 +43,27 @@ void affine(std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& 
                     rotate(vec_ints.begin() + degree_half, vec_ints.begin() + degree - idx_rot, vec_ints.begin() + degree);
 
                     if ( b == 0 ) {
-                        giant = context->EvalMult(PSsk_bs[0], context->MakeCKKSPackedPlaintext(vec_ints));
+                        giant = evalpow(PSsk_bs[0], context->MakeCKKSPackedPlaintext(vec_ints));
                     } else {
-                        auto temp = context->EvalMult(PSsk_bs[b], context->MakeCKKSPackedPlaintext(vec_ints));
-                        context->EvalAddInPlace(giant, temp);
+                        auto temp = evalpow(PSsk_bs[b], context->MakeCKKSPackedPlaintext(vec_ints));
+                        context->EvalMultInPlace(giant, temp);
                     }
                 }
+                //
                 if (g_ == 0) {
                     output[i][l] = giant;
                 } else {
                     output[i][l] = context->EvalRotate(output[i][l], b_tilde1);
-                    context->EvalAddInPlace(output[i][l], giant);
+                    context->EvalMultInPlace(output[i][l], giant);
                 }
             }
         }
 
         for (int l = 0; l < PSparam.ell; l++){
             for(int m = 0; m < degree; m++){
-                vec_ints[m] = signals_b[idx + m][l];
+                vec_com[m] = encodeVector(-1*signals_b[idx + m][l]);
             }
-            output[i][l] = context->EvalSub(output[i][l], context->MakeCKKSPackedPlaintext(vec_ints)); 
+            output[i][l] = context->EvalMult(output[i][l], context->MakeCKKSPackedPlaintext(vec_com));
         }
     }
 }

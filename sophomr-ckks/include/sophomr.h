@@ -40,6 +40,8 @@ void sophomr() {
     CryptoContext<DCRTPoly> context_comp = GenCryptoContext(CKKSparam);
     enable(context_comp);
     auto keyPair_comp = context_comp->KeyGen();
+    context_comp->EvalMultKeyGen(keyPair_comp.secretKey);
+    context_comp->EvalRotateKeyGen(keyPair_comp.secretKey, { 1,2 });
 
     //CKKSparam.SetRingDim(degree_trace);
     CryptoContext<DCRTPoly> context_trace = GenCryptoContext(CKKSparam);
@@ -86,7 +88,15 @@ void sophomr() {
     vector<Ciphertext<DCRTPoly>> PV(numctxt);
 
     detect(PV, signals_a, signals_b, context, PSsk_enc, swk); 
-
+    uint32_t numTowers1 = PV[0]->GetElements()[0].GetNumOfElements();
+    cout << "num towers : " << numTowers1 << endl;
+    /*
+    for (size_t i = 0; i < PV.size(); ++i) {
+        std::vector<double> vals(degree, i); // i·Î Ã¤¿î º¤ÅÍ
+        auto ptxt = context->MakeCKKSPackedPlaintext(vals);
+        PV[i] = context->Encrypt(keyPair.publicKey, ptxt);
+    }
+    */
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t Detection Finished!" << endl;
     cout << "\t Detection time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;

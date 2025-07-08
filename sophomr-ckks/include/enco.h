@@ -23,7 +23,7 @@ int decodeComplex(const std::complex<double>& c, int n) {
 }
 
 // 3. 정수 벡터에 대해 encode
-std::vector<std::complex<double>> encodeVector(const std::vector<int>& vec, int n) {
+std::vector<std::complex<double>> encodeVector(const std::vector<double>& vec, int n) {
     std::vector<std::complex<double>> result;
     result.reserve(vec.size());
     for (int m : vec) {

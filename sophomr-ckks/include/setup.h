@@ -82,9 +82,7 @@ lbcrypto::Ciphertext<lbcrypto::DCRTPoly> encryptPSsk_ckks( //ckks 용 PSsk 암호화
 
     auto PSsk_ptxt = context->MakeCKKSPackedPlaintext(PSsk_vec_dbl);
     auto PSsk_enc = context->Encrypt(HEpk, PSsk_ptxt);
-    for (size_t i = 0; i < PSsk_enc->GetElements().size(); ++i) {
-        std::cout << "Element " << i << ": " << PSsk_enc->GetElements()[i] << std::endl;
-    }
+    
     return PSsk_enc;
 }
 

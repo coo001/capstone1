@@ -1,11 +1,11 @@
 
 int payload_size = 0;// 612 * 8;
 
-int num_transaction = 65536;
+int num_transaction = 2048;
 int num_pertinent = 50;
 
 int ptxt_modulus = 786433;
-int degree = 32768; // 65536도 너무 작다고 이거 2배는 되야한다는데
+int degree = 1024; // 65536도 너무 작다고 이거 2배는 되야한다는데
 
 int NumLargeDigits = 2; 
 int ScalingModSize = 30;// 50; // 60크다고 오류뜸 // 근데 이것도 올려도 될듯

@@ -138,22 +138,29 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
                     }
                 }
 
-                // 1. 암호문의 현재 레벨과 스케일을 가져옵니다.
+                std::cout << "i : " << i << ", b : " << b << "\n";
                 auto& ctxt_to_mult = rotated_PV[i][b];
-                size_t ctxt_level = ctxt_to_mult->GetLevel();
-                double ctxt_scale = ctxt_to_mult->GetScalingFactor();
+                size_t level = ctxt_to_mult->GetElements()[0].GetNumOfElements();
+                std::cout << "level: " << level << std::endl;
 
-                auto ptxt = context_comp->MakeCKKSPackedPlaintext(ptxt_vec, ctxt_scale, ctxt_level, nullptr);
+                //double ctxt_scale = ctxt_to_mult->GetScalingFactor();
 
-                // 3. 평문의 스케일을 암호문의 스케일과 동일하게 맞춰줍니다.
-                ptxt->SetScalingFactor(ctxt_scale);
+                auto ptxt = context_comp->MakeCKKSPackedPlaintext(ptxt_vec);
+
+                //ptxt->SetScalingFactor(ctxt_scale);
                 //giant[i] = rotated_PV[i][b];
-                
+                auto enc_ptxt = context_comp->Encrypt(publicKey_comp, ptxt);
+                std::vector<DCRTPoly>& elements = enc_ptxt->GetElements();
+                for (auto& element : elements) {
+                    element.DropLastElements(level);
+                }
+                //enc_ptxt->SetLevel(enc_ptxt->GetLevel()+ level+1);
+                std::cout << "level: " << enc_ptxt->GetElements()[0].GetNumOfElements() << std::endl;
                 std::cout << "ptxt 는 잘 됨" << std::endl;
                 if ( b == 0 ) {
-                    giant[i] = context_comp->EvalMult(rotated_PV[i][0], ptxt);
+                    giant[i] = context_comp->EvalMult(rotated_PV[i][0], enc_ptxt);
                 } else {
-                    auto temp = context_comp->EvalMult(rotated_PV[i][b], ptxt);
+                    auto temp = context_comp->EvalMult(rotated_PV[i][b], enc_ptxt);
                     context_comp->EvalAddInPlace(giant[i], temp);
                 }
                 std::cout << "근데 mult가 안 되는 거 같은데" << std::endl;

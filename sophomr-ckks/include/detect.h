@@ -17,7 +17,7 @@ void affine(std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& 
     // Giant-step
     for (int i = 0; i < numctxt; i++) {
         int idx = i * degree;
-        std::vector<int> vec_ints(degree);
+        std::vector<double> vec_ints(degree);
         std::vector<std::complex<double>> vec_com(degree);
 
         for (int l = 0; l < PSparam.ell; l++) {
@@ -43,10 +43,10 @@ void affine(std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& 
                     rotate(vec_ints.begin() + degree_half, vec_ints.begin() + degree - idx_rot, vec_ints.begin() + degree);
 
                     if ( b == 0 ) {
-                        giant = evalpow(PSsk_bs[0], context->MakeCKKSPackedPlaintext(vec_ints));
+                        giant = context->EvalMult(PSsk_bs[0], context->MakeCKKSPackedPlaintext(vec_ints));
                     } else {
-                        auto temp = evalpow(PSsk_bs[b], context->MakeCKKSPackedPlaintext(vec_ints));
-                        context->EvalMultInPlace(giant, temp);
+                        auto temp = context->EvalMult(PSsk_bs[b], context->MakeCKKSPackedPlaintext(vec_ints));
+                        context->EvalAddInPlace(giant, temp);
                     }
                 }
                 //
@@ -54,14 +54,14 @@ void affine(std::vector<std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>>& 
                     output[i][l] = giant;
                 } else {
                     output[i][l] = context->EvalRotate(output[i][l], b_tilde1);
-                    context->EvalMultInPlace(output[i][l], giant);
+                    context->EvalAddInPlace(output[i][l], giant);
                 }
             }
         }
 
         for (int l = 0; l < PSparam.ell; l++){
             for(int m = 0; m < degree; m++){
-                vec_com[m] = encodeVector(-1*signals_b[idx + m][l]);
+                vec_com[m] = signals_b[idx + m][l]; //encodeVector(-1*signals_b[idx + m][l], ptxt_modulus);
             }
             output[i][l] = context->EvalMult(output[i][l], context->MakeCKKSPackedPlaintext(vec_com));
         }
@@ -196,7 +196,7 @@ void rangeCheck(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     
     for (int i = 0; i < numctxt; i++){
         output[i] = product(input[i], context);
-        output[i] = context->Compress(output[i], 2);
+    //    output[i] = context->Compress(output[i], 10);
         context->GetScheme()->KeySwitchInPlace(output[i], swk);
     }
 } 
@@ -261,7 +261,8 @@ void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     clock_start = chrono::high_resolution_clock::now();
     
     affine(PV_ell, signals_a, signals_b, context, PSsk_enc);
-
+    uint32_t numTowers1 = PV_ell[0][0]->GetElements()[0].GetNumOfElements();
+    cout << "num towers : " << numTowers1 << endl;
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t\t Affine Transform Finished!" << endl;
     cout << "\t\t Affine Transform time: " << chrono::duration<double>(clock_end - clock_start).count() << "sec\n" << endl;
@@ -269,7 +270,7 @@ void detect(std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>>& output,
     cout << "\t\t RangeCheck Started!\n" << endl;
     clock_start = chrono::high_resolution_clock::now();
    
-    rangeCheck_ckks(output, PV_ell, context, swk);
+    rangeCheck(output, PV_ell, context, swk);
 
     clock_end = chrono::high_resolution_clock::now();
     cout << "\t\t RangeCheck Finished!" << endl;

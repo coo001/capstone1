@@ -92,7 +92,8 @@ void decode(std::vector<int>& decodedIdx,
 {
     lbcrypto::Plaintext digest_pt;
     context->Decrypt(HEsk, digest, &digest_pt);
-    std::vector<int64_t> digest_vec = digest_pt->GetPackedValue();
+    //digest_pt->SetLength(1024); // 암호화시 사용한 slot 개수로!
+    std::vector<std::complex<double>> digest_vec = digest_pt->GetCKKSPackedValue();
 
     if (trace_swap == 1) {
         for (int i = 0; i < degree_trace_half; i++) {
@@ -105,11 +106,11 @@ void decode(std::vector<int>& decodedIdx,
     std::vector<int64_t> digest_idx(num_pertinent);
     std::vector<std::vector<int64_t>> digest_payload(payload_len, std::vector<int64_t>(num_pertinent));
     for (int j = 0; j < num_pertinent; j++) {
-            digest_idx[j] = digest_vec[j];
+            digest_idx[j] = static_cast<int>(std::round(digest_vec[j].real()));
     }
     for (int i = 0; i < payload_len; i++) {
         for (int j = 0; j < num_pertinent; j++) {
-            digest_payload[i][j] = digest_vec[(i+1) * num_pertinent + j];
+            digest_payload[i][j] = static_cast<int>(std::round(digest_vec[(i+1) * num_pertinent + j].real()));
         }
     }
     
@@ -136,6 +137,14 @@ void checkResult(const std::vector<int>& decodedIdx,
         pertinentPayload[i] = payloads[pertinentIdx[i]];
     }
 
+    std::cout << "decode" << std::endl;
+    for(auto& a : decodedIdx){
+        std::cout << a << std::endl;
+    }
+    std::cout << "pretinent" << std::endl;
+    for(auto& a : pertinentIdx){
+        std::cout << a << std::endl;
+    }
     if (pertinentIdx == decodedIdx && pertinentPayload == decodedPayload) {
         std::cout << "Result is Correct!" << std::endl;
     } else {

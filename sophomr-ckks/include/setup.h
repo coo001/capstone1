@@ -1,4 +1,4 @@
-
+#include "enco.h"
 #include "ciphertext-ser.h"
 #include "key/key-ser.h"
 #include "scheme/bfvrns/bfvrns-ser.h"
@@ -72,13 +72,18 @@ lbcrypto::Ciphertext<lbcrypto::DCRTPoly> encryptPSsk_ckks( //ckks 용 PSsk 암호화
     const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& HEpk,
     const PSsk& PSsk)
 {
+    
+    //std::cout << "PSsk values (as uint64_t):" << std::endl;
     std::vector<double> PSsk_vec_dbl(degree);
     for (int i = 0; i < degree; i++) {
         int64_t val = PSsk[i % PSparam.n].ConvertToInt();
         if (val == PSparam.q - 1)
-            val = ptxt_modulus - 1;
+            val = - 1;
+        //std::cout << "PSsk[" << i << "] = " << val << std::endl;
         PSsk_vec_dbl[i] = static_cast<double>(val);
     }
+    
+    
 
     auto PSsk_ptxt = context->MakeCKKSPackedPlaintext(PSsk_vec_dbl);
     auto PSsk_enc = context->Encrypt(HEpk, PSsk_ptxt);

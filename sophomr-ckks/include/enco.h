@@ -8,6 +8,10 @@
 
 constexpr double PI = 3.14159265358979323846;
 
+inline double symmetric_embed(uint64_t x, uint64_t p) {
+    return (x < p / 2) ? (double)x : (double)x - (double)p;
+}
+
 // 1. 정수 m을 받으면 exp(-2*pi*i*m/n)을 반환
 std::complex<double> encodeInt(int m, int n) {
     double angle = 2.0 * PI * static_cast<double>(m) / static_cast<double>(n);

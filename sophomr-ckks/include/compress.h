@@ -6,7 +6,7 @@ void computeVandermonde(std::vector<std::vector<double>>& vandermonde) // uint64
     }
     for (size_t i = 1; i < vandermonde.size(); i++) {
         for (size_t j = 0; j < vandermonde[0].size(); j++) {
-            // `% ptxt_modulus` »èÁ¦
+            // `% ptxt_modulus` ï¿½ï¿½ï¿½ï¿½
             vandermonde[i][j] = vandermonde[i - 1][j] * static_cast<double>(j + 1);
         }
     }
@@ -14,7 +14,8 @@ void computeVandermonde(std::vector<std::vector<double>>& vandermonde) // uint64
 
 void ringSwitch(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest, 
                 const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_comp,
-                const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_trace, 
+                const lbcrypto::CryptoContext<lbcrypto::DCRTPoly>& context_trace,
+                const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& publicKey_comp, 
                 const lbcrypto::PublicKey<lbcrypto::DCRTPoly>& publicKey_trace)
 {
     using namespace std;
@@ -28,11 +29,24 @@ void ringSwitch(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     }
     auto ptxt_mask1 = context_comp->MakeCKKSPackedPlaintext(vec_mask1);
     auto ptxt_mask2 = context_comp->MakeCKKSPackedPlaintext(vec_mask2);
+    //ì—¬ê¸°ë„ ë ˆë²¨ì¡°ì •í•´ì•¼í•´ì„œí•¨
+    size_t level = digest->GetElements()[0].GetNumOfElements();
+    auto enc_ptxt1 = context_comp->Encrypt(publicKey_comp, ptxt_mask1);
+    std::vector<DCRTPoly>& elements = enc_ptxt1->GetElements();
+    for (auto& element : elements) {
+        element.DropLastElements(MultiplicativeDepth-level+1);
+    }
+    auto enc_ptxt2 = context_comp->Encrypt(publicKey_comp, ptxt_mask2);
+    std::vector<DCRTPoly>& elements2 = enc_ptxt2->GetElements();
+    for (auto& element : elements2) {
+        element.DropLastElements(MultiplicativeDepth-level+1);
+    }
 
     Ciphertext<DCRTPoly> temp;
     temp = context_comp->EvalRotate(digest, degree_trace_half);
-    temp = context_comp->EvalMult(temp, ptxt_mask2);
-    digest = context_comp->EvalMult(digest, ptxt_mask1);
+    temp = context_comp->EvalMult(temp, enc_ptxt2);
+    std::cout << 10 << std::endl;
+    digest = context_comp->EvalMult(digest, enc_ptxt1);
     context_comp->EvalAddInPlace(digest, temp);
 
     digest = context_comp->Compress(digest);
@@ -40,7 +54,7 @@ void ringSwitch(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
     vector<double> vec_null(degree_trace);
     auto ptxt_null = context_trace->MakeCKKSPackedPlaintext(vec_null);
     auto ctxt_trace = context_trace->Encrypt(publicKey_trace, ptxt_null);
-    ctxt_trace = context_trace->Compress(ctxt_trace);
+    //ctxt_trace = context_trace->Compress(ctxt_trace);
 
     auto poly_comp = digest->GetElements();
     auto poly_trace = ctxt_trace->GetElements();
@@ -138,10 +152,10 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
                     }
                 }
 
-                std::cout << "i : " << i << ", b : " << b << "\n";
+                //std::cout << "i : " << i << ", b : " << b << "\n";
                 auto& ctxt_to_mult = rotated_PV[i][b];
                 size_t level = ctxt_to_mult->GetElements()[0].GetNumOfElements();
-                std::cout << "level: " << level << std::endl;
+                //std::cout << "level: " << level << std::endl;
 
                 //double ctxt_scale = ctxt_to_mult->GetScalingFactor();
 
@@ -152,18 +166,18 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
                 auto enc_ptxt = context_comp->Encrypt(publicKey_comp, ptxt);
                 std::vector<DCRTPoly>& elements = enc_ptxt->GetElements();
                 for (auto& element : elements) {
-                    element.DropLastElements(level);
+                    element.DropLastElements(MultiplicativeDepth-level+2);
                 }
                 //enc_ptxt->SetLevel(enc_ptxt->GetLevel()+ level+1);
-                std::cout << "level: " << enc_ptxt->GetElements()[0].GetNumOfElements() << std::endl;
-                std::cout << "ptxt ´Â Àß µÊ" << std::endl;
+                //std::cout << "level: " << enc_ptxt->GetElements()[0].GetNumOfElements() << std::endl;
+                //std::cout << "ptxt ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½" << std::endl;
                 if ( b == 0 ) {
                     giant[i] = context_comp->EvalMult(rotated_PV[i][0], enc_ptxt);
                 } else {
                     auto temp = context_comp->EvalMult(rotated_PV[i][b], enc_ptxt);
                     context_comp->EvalAddInPlace(giant[i], temp);
                 }
-                std::cout << "±Ùµ¥ mult°¡ ¾È µÇ´Â °Å °°Àºµ¥" << std::endl;
+                //std::cout << "ï¿½Ùµï¿½ multï¿½ï¿½ ï¿½ï¿½ ï¿½Ç´ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" << std::endl;
              
             }
         }
@@ -192,5 +206,5 @@ void compress(lbcrypto::Ciphertext<lbcrypto::DCRTPoly>& digest,
 
     std::cout << 2 << std::endl;
     // Ring-Switching
-    ringSwitch(digest, context_comp, context_trace, publicKey_trace);
+    ringSwitch(digest, context_comp, context_trace, publicKey_comp, publicKey_trace);
 }

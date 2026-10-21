@@ -17,7 +17,7 @@ def compute_coeffs(r, p):
     # 필요에 따라 coeff 배열 포맷에 맞게 변환 가능
     return coeffs
 
-r = 45
+r = 39
 p = 786433
 k = 8
 arr = compute_coeffs(r,p)[::2]
